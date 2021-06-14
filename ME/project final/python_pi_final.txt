@@ -1,0 +1,379 @@
+#******************************************#
+#import
+import RPi.GPIO as GPIO
+import time
+from pad4pi import rpi_gpio
+
+#******************************************#
+#Database Connection
+
+from datetime import date
+import mysql.connector
+mydb = mysql.connector.connect(host="192.168.43.139", database="buspass", user="user", password="pass")
+#print("Connected")
+#******************************************#
+KEYPAD = [
+    ["<", ">", "K", "C"],
+    ["4", "5", "6", "B"],
+    ["7", "8", "9", "C"],
+    ["*", "0", "#", "D"]
+]
+
+STOPS = ['Udupi','Santekatte','Brahmavara','Sastana','Saligrama','Kota','Tekkatte','Koteshwara','Kundapura']
+
+COL_PINS = [21, 20, 16, 12] # BCM numbering
+ROW_PINS = [26,19,13,6] # BCM numbering
+
+factory = rpi_gpio.KeypadFactory()
+keypad = factory.create_keypad(keypad=KEYPAD, row_pins=ROW_PINS, col_pins=COL_PINS)
+
+#******************************************#
+
+def printKey(key):
+#    lcd_byte(ord(key),LCD_CHR)
+    global select_stops
+    
+    if(key == '<'):
+        prevkey()
+    elif(key == '>'):
+        nextkey()
+    elif(key == 'K'):
+        select_stops.append(selection)
+        if(len(select_stops)==1):
+            lcd_byte(0x01, LCD_CMD)
+            lcd_string("    Select",LCD_LINE_1)
+            lcd_string("  Destination",LCD_LINE_2)
+            lcd_byte(0x0C, LCD_CMD)
+            time.sleep(3)
+            
+            lcd_byte(0x01, LCD_CMD)
+            lcd_string("Stops:" + all_stops,LCD_LINE_1)
+            lcd_string(str(selection+1) + '.' + STOPS[selection],LCD_LINE_2)
+            lcd_byte(0x0C, LCD_CMD)
+        elif(len(select_stops)==2):
+            ticket()
+        else:
+            lcd_byte(0x01, LCD_CMD)
+            lcd_string("    Error",LCD_LINE_1)
+            lcd_string("  Press Clear",LCD_LINE_2)
+            lcd_byte(0xC0, LCD_CMD)
+    elif(key == 'C'):
+        clearall()
+    else:
+        lcd_byte(0x01, LCD_CMD)
+        lcd_string("    Error",LCD_LINE_1)
+        lcd_string("  Press Clear",LCD_LINE_2)
+        lcd_byte(0xC0, LCD_CMD)
+
+
+#******************************************#
+def clearall():
+    global selection
+    global all_stops
+    global total_stops
+    global select_stops
+    global user_id
+
+    select_stops =[]
+    selection = 0
+    all_stops =''
+    total_stops = len(STOPS)
+
+    for i in range(1,total_stops+1):
+        all_stops+=str(i)
+    
+    user = input("Enter the user id")
+    user_id = str(user)
+    #Check user details
+    sql_function1(user_id)
+    
+    
+    
+    
+    lcd_byte(0x01, LCD_CMD)
+    lcd_string("    Welcome",LCD_LINE_1)
+    lcd_string(" Select Source",LCD_LINE_2)
+    lcd_byte(0xC0, LCD_CMD)
+    time.sleep(3)
+
+    lcd_byte(0x01, LCD_CMD)
+    lcd_string("Stops:" + all_stops,LCD_LINE_1)
+    lcd_string(str(selection+1) + '.' + STOPS[selection],LCD_LINE_2)
+    lcd_byte(0x80, LCD_CMD)
+
+#******************************************#
+def nextkey():
+    global selection
+    global all_stops
+    global total_stops
+    selection+=1
+    if(selection<= total_stops):
+        lcd_byte(0x01, LCD_CMD)
+        lcd_string("Stops:" + all_stops,LCD_LINE_1)
+        lcd_string(str(selection+1) + '.' + STOPS[selection],LCD_LINE_2)
+        lcd_byte(0xC0, LCD_CMD)
+        
+    else: 
+        lcd_byte(0x01, LCD_CMD)
+        lcd_string("End, Go Back",LCD_LINE_1)
+        lcd_byte(0xC0, LCD_CMD)
+#******************************************#
+def prevkey():
+    global selection
+    global all_stops
+    global total_stops
+    selection-=1
+    if(selection>= 0):
+        lcd_byte(0x01, LCD_CMD)
+        lcd_string("Stops:" + all_stops,LCD_LINE_1)
+        lcd_string(str(selection+1) + '.' + STOPS[selection],LCD_LINE_2)
+        lcd_byte(0xC0, LCD_CMD)
+    else: 
+        lcd_byte(0x01, LCD_CMD)
+        lcd_string("    Go Next",LCD_LINE_1)
+        lcd_byte(0xC0, LCD_CMD)
+#******************************************#
+def ticket():
+    global select_stops
+    global user_id
+
+    lcd_byte(0x01, LCD_CMD)
+    lcd_string("Journey:",LCD_LINE_1)
+    lcd_byte(0xC0, LCD_CMD)
+    lcd_string(STOPS[select_stops[0]] + '-' + STOPS[select_stops[1]],LCD_LINE_2)
+    time.sleep(3)
+    
+    #print(select_stops)
+    amount = (select_stops[1] - select_stops[0])*10
+    print(amount)
+    print("Source: " + STOPS[select_stops[0]])
+    print("Dest: " + STOPS[select_stops[1]])
+    
+    mycursor = mydb.cursor()
+    a1 = STOPS[select_stops[0]]
+    b1 = STOPS[select_stops[1]]
+    v = str(amount)
+    c1 = str(date.today())
+    j1 = user_id
+    
+    mycursor.execute("SELECT max(transaction_id) FROM buspass.userstransa")
+    
+    transaction_id = mycursor.fetchone()
+    k2 = str(transaction_id[0]+1)
+
+    mycursor.execute("INSERT INTO buspass.userstransa (transaction_id,from_place,to_place,travel_fare,travel_date,user_id) VALUES (%s,%s,%s,%s,%s,%s)",(k2, a1, b1, v, c1, j1))
+
+    mycursor.execute("Update buspass.users set Balance=Balance - %s Where user_id= %s",(v,j1,))
+    
+    mydb.commit()
+    
+    lcd_byte(0x01, LCD_CMD)
+    lcd_string("Successful",LCD_LINE_1)
+    lcd_string("Thank You!",LCD_LINE_2)
+    lcd_byte(0xC0, LCD_CMD)
+    time.sleep(3)
+
+    lcd_byte(0x01, LCD_CMD)
+    lcd_string("  Press Clear",LCD_LINE_2)
+    lcd_byte(0xC0, LCD_CMD)
+    
+
+#******************************************#
+def sql_function1(i):
+    global user_id
+    mycursor = mydb.cursor()
+    mycursor.execute("SELECT dateod FROM buspass.date2 where id=1")
+    myresult = mycursor.fetchone()
+    #print(myresult)
+    mycursor1=mydb.cursor()
+    mycursor1.execute("SELECT exp_date FROM buspass.users where user_id=%s",(i,))
+    myresult1 = mycursor.fetchone()
+    #print(myresult1)
+    if(myresult1>myresult):
+        sql_function2(user_id)
+    else:
+        lcd_byte(0x01, LCD_CMD)
+        lcd_string(" Card Expired",LCD_LINE_1)
+        lcd_byte(0xC0, LCD_CMD)
+        time.sleep(3)
+        exit(0)
+
+
+#******************************************#   
+def sql_function2(i):
+    mycursor = mydb.cursor()
+    mycursor.execute("SELECT balanceod FROM buspass.date2 where id=1")
+    myresult3 = mycursor.fetchone()
+    mycursor2=mydb.cursor()
+    mycursor2.execute("SELECT balance FROM buspass.users where user_id=%s", (i,))
+    myresult2=mycursor2.fetchone()
+    #print(myresult2)
+    #print(myresult3)
+    if(myresult2>myresult3):
+        lcd_byte(0x01, LCD_CMD)
+        lcd_string(" Valid",LCD_LINE_1)
+        lcd_byte(0xC0, LCD_CMD)
+        time.sleep(3)
+
+    else:
+        lcd_byte(0x01, LCD_CMD)
+        lcd_string("  No Balance",LCD_LINE_1)
+        lcd_byte(0xC0, LCD_CMD)
+        time.sleep(3)
+        exit(0)
+# printKey will be called each time a keypad button is pressed
+keypad.registerKeyPressHandler(printKey)
+
+
+
+
+# Define GPIO to LCD mapping
+LCD_RS = 25
+LCD_E  = 24
+LCD_D4 = 23
+LCD_D5 = 17
+LCD_D6 = 18
+LCD_D7 = 22
+
+
+
+# Define LCD parameters
+LCD_WIDTH = 16    # Maximum characters per line
+LCD_CHR = True
+LCD_CMD = False
+
+LCD_LINE_1 = 0x80 # LCD RAM address for the 1st line
+LCD_LINE_2 = 0xC0 # LCD RAM address for the 2nd line
+
+# Timing constants
+E_PULSE = 0.0005
+E_DELAY = 0.0005
+
+
+#******************************************#
+def main():
+  # Main program block
+  global pm
+  global system_sts
+  #global all_stops
+  #global current_stop
+  #current_stop=0
+  
+  GPIO.setwarnings(False)
+  GPIO.setmode(GPIO.BCM)       # Use BCM GPIO numbers
+  GPIO.setup(LCD_E, GPIO.OUT)  # E
+  GPIO.setup(LCD_RS, GPIO.OUT) # RS
+  GPIO.setup(LCD_D4, GPIO.OUT) # DB4
+  GPIO.setup(LCD_D5, GPIO.OUT) # DB5
+  GPIO.setup(LCD_D6, GPIO.OUT) # DB6
+  GPIO.setup(LCD_D7, GPIO.OUT) # DB7
+
+
+  # Initialise display
+  lcd_init()
+  lcd_byte(0x01, LCD_CMD)
+  lcd_string("    Welcome",LCD_LINE_1)
+  lcd_string("  Press Clear",LCD_LINE_2)
+  lcd_byte(0xC0, LCD_CMD)
+  while True:
+      time.sleep(1)
+      
+
+
+
+      
+#******************************************#  
+def lcd_init():
+  # Initialise display
+  lcd_byte(0x33,LCD_CMD) # 110011 Initialise
+  lcd_byte(0x32,LCD_CMD) # 110010 Initialise
+  lcd_byte(0x06,LCD_CMD) # 000110 Cursor move direction
+  lcd_byte(0x0C,LCD_CMD) # 001100 Display On,Cursor Off, Blink Off
+  lcd_byte(0x28,LCD_CMD) # 101000 Data length, number of lines, font size
+  lcd_byte(0x01,LCD_CMD) # 000001 Clear display
+  time.sleep(E_DELAY)
+
+#******************************************#
+def lcd_byte(bits, mode):
+  # Send byte to data pins
+  # bits = data
+  # mode = True  for character
+  #        False for command
+
+  GPIO.output(LCD_RS, mode) # RS
+
+  # High bits
+  GPIO.output(LCD_D4, False)
+  GPIO.output(LCD_D5, False)
+  GPIO.output(LCD_D6, False)
+  GPIO.output(LCD_D7, False)
+  if bits&0x10==0x10:
+    GPIO.output(LCD_D4, True)
+  if bits&0x20==0x20:
+    GPIO.output(LCD_D5, True)
+  if bits&0x40==0x40:
+    GPIO.output(LCD_D6, True)
+  if bits&0x80==0x80:
+    GPIO.output(LCD_D7, True)
+
+  # Toggle 'Enable' pin
+  lcd_toggle_enable()
+
+  # Low bits
+  GPIO.output(LCD_D4, False)
+  GPIO.output(LCD_D5, False)
+  GPIO.output(LCD_D6, False)
+  GPIO.output(LCD_D7, False)
+  if bits&0x01==0x01:
+    GPIO.output(LCD_D4, True)
+  if bits&0x02==0x02:
+    GPIO.output(LCD_D5, True)
+  if bits&0x04==0x04:
+    GPIO.output(LCD_D6, True)
+  if bits&0x08==0x08:
+    GPIO.output(LCD_D7, True)
+
+  # Toggle 'Enable' pin
+  lcd_toggle_enable()
+
+#******************************************#
+def lcd_toggle_enable():
+  # Toggle enable
+  time.sleep(E_DELAY)
+  GPIO.output(LCD_E, True)
+  time.sleep(E_PULSE)
+  GPIO.output(LCD_E, False)
+  time.sleep(E_DELAY)
+
+#***************************************#
+
+
+def lcd_string(message,line):
+  # Send string to display
+
+  message = message.ljust(LCD_WIDTH," ")
+
+  lcd_byte(line, LCD_CMD)
+
+  for i in range(LCD_WIDTH):
+    lcd_byte(ord(message[i]),LCD_CHR)
+
+
+#******************************************#
+
+
+
+if __name__ == '__main__':
+
+  try:
+    main()
+  except KeyboardInterrupt:
+    pass
+  finally:
+    lcd_byte(0x01, LCD_CMD)
+    lcd_string("Goodbye!",LCD_LINE_1)
+    GPIO.cleanup()
+
+
+
+

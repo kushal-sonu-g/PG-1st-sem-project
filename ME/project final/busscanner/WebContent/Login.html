@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="ISO-8859-1">
+<title>Login</title>
+<style>
+
+.frame {
+        width: 50%;
+        height: 50%;
+        border: 3px solid #ccc;
+        background: #eee;
+        margin: auto;
+        padding: 15px 10px;
+      }
+
+
+      
+body { 
+  
+  width: 100%;
+  height:100%;
+  font-family: 'Open Sans', sans-serif;
+  background: linear-gradient(to right, #0099cc 0%, #ccffff 100%);
+  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#3E1D6D', endColorstr='#092756',GradientType=1 );
+}
+
+
+  h1 { color: #fff; text-shadow: 0 0 10px rgba(0,0,0,0.3);
+   letter-spacing:1px; text-align:center; }
+  input { 
+    text-align: left;
+  width: 90%; 
+  margin-bottom: 10px; 
+  background: rgba(0,0,0,0.3);
+  border: none;
+  outline: none;
+  padding: 10px;
+  font-size: 13px;
+  color: #fff;
+  text-shadow: 1px 1px 1px rgba(0,0,0,0.3);
+  border: 1px solid rgba(0,0,0,0.3);
+  border-radius: 4px;
+  box-shadow: inset 0 -5px 45px rgba(100,100,100,0.2), 0 1px 1px rgba(255,255,255,0.2);
+  -webkit-transition: box-shadow .5s ease;
+  -moz-transition: box-shadow .5s ease;
+  -o-transition: box-shadow .5s ease;
+  -ms-transition: box-shadow .5s ease;
+  transition: box-shadow .5s ease;
+}
+input:focus { box-shadow: inset 0 -5px 45px rgba(100,100,100,0.4), 0 1px 1px rgba(255,255,255,0.2); }
+
+
+.imgcontainer {
+  text-align: center;
+  margin: 24px 0 12px 0;
+  size:;
+}
+
+img.avatar {
+  width: 20%;
+  border-radius: 50%;
+}
+
+.container {
+  padding: 16px;
+}
+
+span.psw {
+  float: right;
+  padding-top: 16px;
+}
+
+/* Change styles for span and cancel button on extra small screens */
+@media screen and (max-width: 300px) {
+  span.psw {
+     display: block;
+     float: none;
+  }
+}
+button {
+  
+  background-color: #221d1d;
+  color: rgb(255, 255, 255);
+  padding: 16px 20px;
+  margin: 8px 0;
+  border: none;
+  cursor: pointer;
+  width: 20%;
+}
+
+button:hover {
+  opacity: 0.8;
+}
+.center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100px;
+  
+}
+</style>
+</head>
+
+<body>
+<form action="http://192.168.43.139:9091/busscanner/Login">
+  <h1 style="color: rgb(0, 0, 0);">Login</h1>
+  <div class="imgcontainer">
+    <img src="bus.png" alt="Avatar" class="avatar">
+  </div>
+
+  <div class="frame">
+  <label for="username"><b>Email ID</b></label>
+  <input type="text" placeholder="Enter Email ID" name="email" required>
+<br>
+  <label for="psw"><b>Password</b></label>
+  <input type="password" placeholder="Enter Password" name="password" required>
+<br>
+<div class="center">
+  <button type="submit">Login</button>
+</div>
+
+</form>
+</body>
+</html>
